@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 
 const express = require("express");
 const cors = require("cors");
@@ -11,7 +12,17 @@ app.use(express.json());
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
+const letterheadRoutes = require("./routes/letterheadRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 app.use("/api/auth", authRoutes);
+app.use("/api/letterhead", letterheadRoutes);
+app.use("/api", publicRoutes);
+
+app.use("/generated", express.static(path.join(__dirname, "generated")));
+app.use(
+  "/signed_letters",
+  express.static(path.join(__dirname, "signed_letters"))
+);
 
 // Start server
 const PORT = 1000;

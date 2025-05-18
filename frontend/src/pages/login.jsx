@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -6,6 +6,13 @@ export default function login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/home", { replace: true });
+    }
+  }, [navigate]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -17,7 +24,7 @@ export default function login({ onLogin }) {
       localStorage.setItem("token", res.data.token);
       alert("Login successful!");
       console.log("Login successful", res.data);
-      navigate("/");
+      navigate("/home", { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || "Error setting password";
       if (msg === "Password not set.") {
