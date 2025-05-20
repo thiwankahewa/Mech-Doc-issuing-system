@@ -1,44 +1,97 @@
 import { useNavigate } from "react-router-dom";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Box from "@mui/material/Box";
+import LogoutIcon from "@mui/icons-material/Logout";
+import NoteAddIcon from "@mui/icons-material/NoteAdd";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import SearchIcon from "@mui/icons-material/Search";
 
 export default function Home() {
   const navigate = useNavigate();
 
   const logout = () => {
     localStorage.removeItem("token");
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   return (
-    <div>
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100">
-        <h1 className="text-2xl font-bold mb-6">
-          Department Letterhead System
-        </h1>
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <button
-            className="bg-blue-500 text-white px-6 py-3 rounded shadow hover:bg-blue-600 transition"
+    <Box
+      minHeight="100vh"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      bgcolor="#f5f7fa"
+    >
+      <Paper
+        elevation={5}
+        sx={{ p: 5, minWidth: 350, maxWidth: 480, borderRadius: 4 }}
+      >
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          color="primary"
+          align="center"
+          gutterBottom
+        >
+          Document Issuing System
+        </Typography>
+        <Typography
+          variant="subtitle1"
+          color="text.secondary"
+          align="center"
+          sx={{ mb: 3 }}
+        >
+          Welcome! You are logged in.
+        </Typography>
+        <Stack spacing={3} sx={{ mb: 4 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            startIcon={<NoteAddIcon />}
             onClick={() => navigate("/generateLH")}
+            sx={{ fontWeight: 600 }}
+            fullWidth
           >
-            📝 Generate New Letterhead
-          </button>
-          <button
-            className="bg-green-500 text-white px-6 py-3 rounded shadow hover:bg-green-600 transition"
+            Generate New Letterhead
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            size="large"
+            startIcon={<CloudUploadIcon />}
             onClick={() => navigate("/upload-signed")}
+            sx={{ fontWeight: 600 }}
+            fullWidth
           >
-            📤 Upload Signed Letter
-          </button>
-          <button
-            className="bg-yellow-500 text-white px-6 py-3 rounded shadow hover:bg-yellow-600 transition"
+            Upload Signed Letter
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            size="large"
+            startIcon={<SearchIcon />}
             onClick={() => navigate("/search-doc")}
+            sx={{ fontWeight: 600 }}
+            fullWidth
           >
-            🔍 Search Issued Letters
-          </button>
-        </div>
-      </div>
-      <div>
-        <h2>Welcome! You are logged in.</h2>
-        <button onClick={logout}>Logout</button>
-      </div>
-    </div>
+            Search Issued Letters
+          </Button>
+        </Stack>
+        <Button
+          variant="outlined"
+          color="error"
+          startIcon={<LogoutIcon />}
+          onClick={logout}
+          fullWidth
+          sx={{ fontWeight: 600 }}
+        >
+          Logout
+        </Button>
+      </Paper>
+    </Box>
   );
 }

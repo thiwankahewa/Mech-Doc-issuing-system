@@ -7,7 +7,7 @@ exports.verify = async (req, res) => {
 
   try {
     const [rows] = await db.query(
-      "SELECT refNo, reason, recipient, signed_at, signed FROM letterheads WHERE refNo = ?",
+      "SELECT refNo, recipient, signed_at, signed FROM letterheads WHERE refNo = ?",
       [refNo]
     );
     if (!rows.length)

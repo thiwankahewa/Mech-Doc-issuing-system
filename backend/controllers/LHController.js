@@ -1,54 +1,82 @@
 const fs = require("fs");
 const path = require("path");
-const PizZip = require("pizzip");
-const Docxtemplater = require("docxtemplater");
 const db = require("../config/db");
+const puppeteer = require("puppeteer");
+const QRCode = require("qrcode");
 
 exports.generate = async (req, res) => {
-  const { reason, recipient } = req.body;
+  const { recipient, content, refNo } = req.body;
   const user = req.user;
-  const refNo = `REF-${Date.now().toString().slice(-6)}-${Math.floor(
-    Math.random() * 1000
-  )}`;
-  //const verifyUrl = `http://localhost:3000/verify/${refNo}`;
+
+  const newRefNo =
+    refNo ||
+    `REF-${Date.now().toString().slice(-6)}-${Math.floor(
+      Math.random() * 1000
+    )}`;
+
+  const qrCodeDataUrl = await QRCode.toDataURL("https://yourdomain.com");
+
+  const fileNamePdf = `${refNo}.pdf`;
+  const filePathPdf = path.join(__dirname, `../generated/${fileNamePdf}`);
+
+  // Load the HTML letterhead template
+  const letterheadHtmlPath = path.join(
+    __dirname,
+    "../htmlTemplates/letterhead.html"
+  );
+  const footerHtmlPath = path.join(__dirname, "../htmlTemplates/footer.html");
+
+  let letterheadHtml = fs.readFileSync(letterheadHtmlPath, "utf-8");
+  let footerHtml = fs.readFileSync(footerHtmlPath, "utf-8");
+
+  const today = new Date();
+  const formattedDate = today
+    .toLocaleDateString("en-GB") // This gives dd/mm/yyyy format
+    .replace(/\//g, "/"); // Ensure slash format
+
+  letterheadHtml = letterheadHtml
+    .replace("{{content}}", content)
+    .replace("{{date}}", formattedDate);
+
+  footerHtml = footerHtml
+    .replace("{{refNo1}}", newRefNo)
+    .replace("{{refNo2}}", newRefNo)
+    .replace("{{qr}}", qrCodeDataUrl);
 
   try {
-    // Load docx template
-    const templatePath = path.resolve(
-      __dirname,
-      "../templates/letterhead.docx"
-    );
-    const content = fs.readFileSync(templatePath, "binary");
-    const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    await page.setContent(letterheadHtml, { waitUntil: "networkidle0" });
+
+    await page.pdf({
+      path: filePathPdf,
+      format: "A4",
+      margin: { top: "10mm", bottom: "40mm", left: "20mm", right: "20mm" },
+      displayHeaderFooter: true,
+      footerTemplate: footerHtml,
+      headerTemplate: `<div></div>`,
     });
 
-    try {
-      doc.render({ refNo: refNo });
-    } catch (error) {
-      console.error("Doc rendering error:", error);
-      throw error;
-    }
+    await browser.close();
 
-    const buffer = doc.getZip().generate({ type: "nodebuffer" });
-    const fileName = `${refNo}.docx`;
-    const filePath = path.join(__dirname, `../generated/${fileName}`);
-    fs.writeFileSync(filePath, buffer);
-
-    // Store metadata in DB
     await db.query(
-      "INSERT INTO letterheads (refNo, reason, recipient, created_by, file_path, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
-      [refNo, reason, recipient, user.id, fileName]
+      `INSERT INTO letterheads (refNo, recipient, created_by, file_path, created_at)
+       VALUES (?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         recipient = VALUES(recipient),
+         created_by = VALUES(created_by),
+         file_path = VALUES(file_path),
+         created_at = NOW()`,
+      [newRefNo, recipient, user.id, fileNamePdf]
     );
 
     res.json({
-      refNo,
-      downloadUrl: `http://localhost:1000/generated/${fileName}`,
+      newRefNo,
+      downloadUrl: `http://localhost:1000/generated/${fileNamePdf}`,
     });
   } catch (err) {
-    console.error("Error generating letterhead:", err);
+    console.error("Error generating PDF:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -65,6 +93,15 @@ exports.uploadSignedLetter = async (req, res) => {
     ]);
     if (rows.length === 0) {
       return res.status(404).json({ message: "Ref No not found" });
+    }
+
+    if (rows[0].signed && rows[0].signed_file_path) {
+      return res
+        .status(409)
+        .json({
+          message:
+            "A signed document already exists for this reference number.",
+        });
     }
 
     const filePath = file.filename;
@@ -88,7 +125,6 @@ exports.search = async (req, res) => {
   let query = `
   SELECT 
     l.refNo, 
-    l.reason, 
     l.recipient, 
     l.created_at, 
     u.username AS created_by, 
@@ -115,11 +151,13 @@ exports.search = async (req, res) => {
     params.push(`%${recipient}%`);
   }
 
-  if (fromDate && toDate) {
-    query += " AND DATE(created_at) BETWEEN ? AND ?";
+  if (fromDate && toDate && fromDate === toDate) {
+    query += " AND DATE(l.created_at) = ?";
+    params.push(fromDate);
+  } else if (fromDate && toDate) {
+    query += " AND DATE(l.created_at) BETWEEN ? AND ?";
     params.push(fromDate, toDate);
   }
-
   try {
     const [results] = await db.query(query, params);
     res.json(results);
